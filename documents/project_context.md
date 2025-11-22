@@ -1,65 +1,67 @@
-# PROJECT CONTEXT: PARK-EASY (Code Name: Tomato)
+# PROJECT CONTEXT: PARK-EASY (MVP Phase 1 Complete)
 
-## 1. Project Overview
-*   **App Name:** ParkEasy
-*   **Core Concept:** "Book My Parking."
-*   **Architecture:** A single Next.js Monorepo simulating two native apps via Route Groups.
-    *   **Driver App:** `/app/(driver)` -> Maps, Booking, Payment.
-    *   **Partner App:** `/app/(partner)` -> Dashboard, QR Scanner, Revenue.
-*   **Target Market:** India (Metro Cities).
+## 1. Project Status
+*   **Current State:** Functional MVP running on Localhost.
+*   **Core Loop:** Users can Sign Up -> List Spots (GPS) -> Search Spots (PostGIS) -> Book -> Generate Ticket -> Scan to Enter.
+*   **Missing/Next:** Profile Pages, "My Bookings" List, Real Mapbox Integration, Penalty Payment Gateway.
 
-## 2. Tech Stack (Current Status)
-*   **Frontend:** Next.js 15 (App Router).
-*   **Core Library:** React 19.
-*   **Styling:** Tailwind CSS (Mobile-First Design).
-*   **Icons:** Lucide React.
-*   **Scanner:** react-qr-reader (Installed via legacy-peer-deps).
-*   **Backend:** Supabase.
-    *   **Database:** PostgreSQL.
-    *   **Geo-Engine:** PostGIS Extension (ENABLED).
-    *   **Auth:** Supabase Auth (Phone/OTP).
+## 2. The Tech Stack (Strict Versioning)
+*   **Framework:** Next.js 16.0.3 (App Router).
+*   **Language:** TypeScript.
+*   **Styling:** Tailwind CSS **v3.4** (Downgraded from v4 for stability).
+*   **UI Library:** Shadcn/UI (via v0) + Lucide React Icons.
+*   **Database:** Supabase (PostgreSQL) + **PostGIS Extension**.
+*   **Auth:** Supabase Auth (Magic Links) with Role-Based Redirects.
+*   **Special Libraries:** 
+    *   `react-qr-reader` (Requires `--legacy-peer-deps`).
+    *   `tw-animate-css` (For landing page animations).
+    *   `clsx` & `tailwind-merge` (For UI components).
 
-## 3. Database Schema (To Be Built)
-*   **Table: users**
-    *   `id` (uuid, PK, links to auth.users)
-    *   `phone` (text)
-    *   `role` (text: 'driver' | 'partner')
-    *   `full_name` (text)
-    *   `vehicle_number` (text, nullable)
-    *   `created_at` (timestamptz)
+## 3. Architecture & Folder Structure
+*   **Root:**
+    *   `/app/page.tsx` -> Public Landing Page (Driver/Partner Split).
+    *   `/app/login/page.tsx` -> Universal Login (handles `?role=driver|partner`).
+    *   `/app/auth/callback/route.ts` -> Handles Magic Link exchange & redirection.
+*   **Driver App (`/app/(driver)/driver/...`):**
+    *   `layout.tsx` -> Mobile Shell + Bottom Nav.
+    *   `home/page.tsx` -> Location Search + PostGIS Logic + List View.
+    *   `book/[id]/page.tsx` -> Duration Slider + Booking Creation.
+    *   `ticket/[id]/page.tsx` -> QR Display.
+*   **Partner App (`/app/(partner)/partner/...`):**
+    *   `layout.tsx` -> Dashboard Shell + Central SCAN Button.
+    *   `dashboard/page.tsx` -> Stats + "Add Spot" CTA.
+    *   `spots/new/page.tsx` -> GPS Capture + Database Insert.
+    *   `scanner/page.tsx` -> Camera/Manual Entry + Check-in/Out Logic.
 
-*   **Table: parking_spots**
-    *   `id` (uuid, PK)
-    *   `owner_id` (uuid, FK to users)
-    *   `name` (text)
-    *   `location` (geography(Point, 4326)) -- CRITICAL: PostGIS Type
-    *   `address` (text)
-    *   `price_per_hour` (numeric)
-    *   `total_spots` (int)
-    *   `image_url` (text)
-    *   `is_active` (boolean)
+## 4. Database Schema (Active)
 
-*   **Table: bookings**
-    *   `id` (uuid, PK)
-    *   `user_id` (uuid, FK to users)
-    *   `spot_id` (uuid, FK to parking_spots)
-    *   `start_time` (timestamptz)
-    *   `end_time` (timestamptz)
-    *   `status` (text: 'upcoming', 'active', 'completed', 'cancelled', 'penalty_due')
-    *   `total_amount` (numeric)
-    *   `qr_code` (text, unique string)
-    *   `entry_time` (timestamptz, nullable)
-    *   `exit_time` (timestamptz, nullable)
+### Table: `users`
+*   Syncs with `auth.users` via Trigger `on_auth_user_created`.
+*   `id` (uuid), `email` (text), `role` (text), `full_name` (text).
 
-## 4. Critical Logic Rules (For AI)
-*   **Location Search:** MUST use Supabase RPC function `nearby_spots` to query the `location` column. Do not calculate distance in Javascript.
-*   **Scanning:**
-    *   Entry: Update `status` to 'active' only if `now() < end_time`.
-    *   Exit: If `now() > end_time`, set `status` to 'penalty_due' and block exit until payment.
-*   **Design System:**
-    *   Use "Tech Automotive" colors (Electric Blue #1A73E8, Dark Navy #0A1A2F).
-    *   Mobile layouts must hide browser scrollbars and feel native.
+### Table: `parking_spots`
+*   `id` (uuid), `owner_id` (uuid).
+*   `name`, `address`, `price_per_hour` (numeric).
+*   `location` (geography(Point, 4326)) -> **CRITICAL FOR SEARCH**.
+*   `total_spots`, `available_spots`.
 
-## 5. Next.js 15 Constraints
-*   **Async Params:** In `page.tsx`, `params` and `searchParams` are Promises. Always `await` them.
-*   **Server Actions:** Use Server Actions for all database mutations (booking, adding spots).
+### Table: `bookings`
+*   `id` (uuid), `user_id`, `spot_id`.
+*   `start_time`, `end_time` (timestamptz).
+*   `status` ('upcoming', 'active', 'completed', 'penalty_due').
+*   `qr_code` (text), `total_amount` (numeric).
+*   `entry_time`, `exit_time`.
+
+### RPC Function: `nearby_spots`
+*   Input: `user_lat`, `user_lng`, `radius_meters`.
+*   Output: List of spots sorted by distance.
+
+## 5. Known Hacks & Workarounds
+1.  **Map Background:** Driver Home uses a static image URL. Need to replace with `react-map-gl` later.
+2.  **Legacy Deps:** When installing new packages, ALWAYS use `npm install [package] --legacy-peer-deps` because of React 19 conflicts.
+3.  **Layout Analytics:** Vercel Analytics was removed from `layout.tsx` to prevent crashes.
+4.  **Hydration Error:** There is a known minor hydration mismatch in the Trust Marquee (visual only).
+
+## 6. Development Commands
+*   **Run Server:** `npm run dev`
+*   **Database Access:** Use Supabase Dashboard -> SQL Editor.
