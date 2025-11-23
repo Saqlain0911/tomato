@@ -154,6 +154,7 @@ export default function AddSpotPage() {
                {formData.lat.toFixed(6)}, {formData.lng?.toFixed(6) || "Loading..."}
              </p>
           )}
+        </div>
 
         {/* Pricing & Spots */}
         <div className="grid grid-cols-2 gap-4">
