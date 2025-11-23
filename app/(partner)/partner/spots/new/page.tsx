@@ -148,11 +148,11 @@ export default function AddSpotPage() {
             {locationStatus === "success" ? "Location Set" : "Use Current GPS"}
           </button>
           
-          {/* CHECK BOTH LAT AND LNG */}
-          {formData.lat && formData.lng && (
-            <p className="text-[10px] text-slate-500 mt-2 text-center font-mono">
-              {formData.lat.toFixed(6)}, {formData.lng.toFixed(6)}
-            </p>
+          {/* SAFE DISPLAY: Uses optional chaining to prevent crash */}
+          {formData.lat && (
+             <p className="text-[10px] text-slate-500 mt-2 text-center font-mono">
+               {formData.lat.toFixed(6)}, {formData.lng?.toFixed(6) || "Loading..."}
+             </p>
           )}
 
         {/* Pricing & Spots */}
